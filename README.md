@@ -1,20 +1,28 @@
 # LAN Browser
 
-LAN Browser is an Electron-based, LAN-native synchronized browser platform.
+LAN Browser is an Electron desktop browser designed for local-network-first usage, with support for synchronized browsing state between peers on the same LAN.
 
-## Description
+## Project Description
 
-This project provides a desktop browser experience with built-in multi-tab navigation, local data storage, and peer sync/discovery features intended for local network collaboration.
+This repository contains an Electron application that combines a custom browser shell with LAN-oriented collaboration features. Instead of acting like a generic wrapper around Chromium, the app is built around browser-level functionality such as tab lifecycle management, local history/bookmarks/download tracking, and peer discovery/synchronization.
 
-Key capabilities include:
-- Custom Electron window and tab management
-- Browsing history, bookmarks, and download tracking
-- LAN discovery and synchronization engine integration
-- Local start script for launching Electron reliably
+In practical terms, the project aims to make browsing on a shared local network more coordinated by:
+- Running as a desktop app with a custom UI and tab system
+- Persisting local browsing metadata (history, bookmarks, downloads)
+- Discovering peers on the local network
+- Syncing selected browser events/state across connected peers
+
+## Core Components
+
+- **Electron main process (`main.js`)**: window creation, tab/browser view control, shortcuts, downloads interception, and IPC wiring.
+- **Launcher (`start.js`)**: reliably starts Electron in app mode by clearing `ELECTRON_RUN_AS_NODE` before spawn.
+- **Preload bridge (`preload.js`, `view-preload.js`)**: secure communication boundary between renderer and privileged main APIs.
+- **Sync/data modules**: LAN discovery + synchronization engine and local persistence stores (history, bookmarks, downloads).
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (recommended current LTS)
 - npm
 
@@ -30,4 +38,4 @@ npm install
 npm start
 ```
 
-This runs `start.js`, which launches the Electron app.
+`npm start` executes `start.js`, which launches the Electron application.
