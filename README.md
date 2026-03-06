@@ -1,41 +1,42 @@
-# LAN Browser
+# LAN Browser 🌐📱
 
-LAN Browser is an Electron desktop browser designed for local-network-first usage, with support for synchronized browsing state between peers on the same LAN.
+A synchronized dual-screen browsing experience for your local network.
 
-## Project Description
+LAN Browser consists of two parts:
+1. **A Desktop Application (Electron):** Acts as the main browser, rendering web pages and handling local media playback.
+2. **A Mobile Application (React Native):** Acts as a companion app, keeping tabs synced and acting as a remote control for media playback.
 
-This repository contains an Electron application that combines a custom browser shell with LAN-oriented collaboration features. Instead of acting like a generic wrapper around Chromium, the app is built around browser-level functionality such as tab lifecycle management, local history/bookmarks/download tracking, and peer discovery/synchronization.
+## Features ✨
 
-In practical terms, the project aims to make browsing on a shared local network more coordinated by:
-- Running as a desktop app with a custom UI and tab system
-- Persisting local browsing metadata (history, bookmarks, downloads)
-- Discovering peers on the local network
-- Syncing selected browser events/state across connected peers
+*   **Real-time Tab Sync:** Your active tab and URLs are instantly synchronized between your laptop and your phone over the local network.
+*   **Media Remote Control:** When you play a video (e.g., YouTube) on the desktop browser, the mobile app transforms into a lightweight Remote Control ("Now Playing" card) instead of loading the video itself. This saves your phone's battery and bandwidth, preventing double data usage!
+*   **Play on Mobile Mode:** Want to watch the video on your phone instead? Just tap "Play on Mobile", and the roles reverse: the mobile app plays the video, and the desktop browser becomes the remote control!
+*   **Local APK Distribution:** No app store needed! The desktop app hosts the mobile app's APK locally. Just scan the QR code on the desktop's "New Tab" page to download and install the mobile app directly.
+*   **Offline First:** The sync engine uses local WebSockets (`ws://`) and subnet discovery. It works completely entirely within your local LAN.
 
-## Core Components
+## Getting Started 🚀
 
-- **Electron main process (`main.js`)**: window creation, tab/browser view control, shortcuts, downloads interception, and IPC wiring.
-- **Launcher (`start.js`)**: reliably starts Electron in app mode by clearing `ELECTRON_RUN_AS_NODE` before spawn.
-- **Preload bridge (`preload.js`, `view-preload.js`)**: secure communication boundary between renderer and privileged main APIs.
-- **Sync/data modules**: LAN discovery + synchronization engine and local persistence stores (history, bookmarks, downloads).
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (recommended current LTS)
-- npm
-
-### Install dependencies
-
+### 1. Run the Desktop Browser
 ```bash
+# Install dependencies
 npm install
-```
 
-### Run
-
-```bash
+# Start the Electron application
 npm start
 ```
 
-`npm start` executes `start.js`, which launches the Electron application.
+### 2. Install the Mobile App
+*   When the desktop browser starts, open a New Tab (`Ctrl+T`).
+*   Scan the **Sync Mobile** QR code with your phone.
+*   Download and install the APK via the local portal page.
+
+### 3. Connect!
+*   Open the mobile app.
+*   It will automatically scan your local network for the desktop browser.
+*   Tap on your desktop in the "Discovered Devices" list to connect.
+
+## Tech Stack 🛠
+
+*   **Desktop:** Node.js, Electron, Express (for APK hosting), ws (WebSockets).
+*   **Mobile:** React Native, Expo, React Native WebView.
+*   **Build:** Gradle (Local Android APK Build).
