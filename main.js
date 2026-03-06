@@ -122,8 +122,8 @@ function registerShortcuts() {
 
         if (input.type !== 'keyDown') return;
 
-        // Ctrl+T → New Tab
-        if (ctrl && !shift && key === 't') {
+        // Ctrl+T or Ctrl+N → New Tab
+        if (ctrl && !shift && (key === 't' || key === 'n')) {
             event.preventDefault();
             createTab(HOME_URL);
         }
@@ -266,7 +266,7 @@ function createTab(url = HOME_URL, fromSync = false) {
         },
     });
 
-    const tab = { id, view, url, title: 'New Tab', favicon: '' };
+    const tab = { id, view, url, title: 'New Tab', favicon: '', ignoreNextNavigations: false };
     tabs.push(tab);
 
     // Track favicon
@@ -298,7 +298,7 @@ function createTab(url = HOME_URL, fromSync = false) {
         if (historyStore) {
             historyStore.addEntry(navUrl, tab.title, tab.favicon);
         }
-        if (!fromSync) {
+        if (!fromSync && !tab.ignoreNextNavigations) {
             syncEngine.sendState('url-change', { tabId: tab.id, url: navUrl, title: tab.title });
         }
     });
@@ -329,7 +329,7 @@ function createTab(url = HOME_URL, fromSync = false) {
         if (tab.id === activeTabId) {
             mainWindow.webContents.send('navigated', { url: navUrl });
         }
-        if (!fromSync) {
+        if (!fromSync && !tab.ignoreNextNavigations) {
             syncEngine.sendState('url-change', { tabId: tab.id, url: navUrl, title: tab.title });
         }
     });
@@ -341,7 +341,7 @@ function createTab(url = HOME_URL, fromSync = false) {
         if (historyStore && tab.url) {
             historyStore.addEntry(tab.url, title, tab.favicon);
         }
-        if (!fromSync && tab.id === activeTabId) {
+        if (!fromSync && tab.id === activeTabId && !tab.ignoreNextNavigations) {
             syncEngine.sendState('url-change', { tabId: tab.id, url: tab.url, title: tab.title });
         }
     });
@@ -351,6 +351,8 @@ function createTab(url = HOME_URL, fromSync = false) {
     });
 
     view.webContents.on('did-stop-loading', () => {
+        tab.ignoreNextNavigations = false;
+        if (tab.syncTimeout) clearTimeout(tab.syncTimeout);
         mainWindow.webContents.send('loading-state-changed', { loading: false });
     });
 
@@ -370,8 +372,11 @@ function createTab(url = HOME_URL, fromSync = false) {
     }
 
     if (!fromSync) {
-        syncEngine.sendState('tab-create', { tabId: id, url });
+        syncEngine.sendState('tab-create', { tabId: id, url: tab.url, title: tab.title });
     }
+
+    // Explicitly send tabs state right away to ensure immediate UI update
+    sendTabsToRenderer();
 
     return id;
 }
@@ -437,7 +442,7 @@ function switchToTab(id, fromSync = false) {
     }
 
     if (!fromSync) {
-        syncEngine.sendState('tab-switch', { tabId: id });
+        syncEngine.sendState('tab-switch', { tabId: id, url: tab.url, title: tab.title });
     }
 }
 
@@ -501,7 +506,12 @@ function handleRemoteState(msg) {
                         mainWindow.addBrowserView(tab.view);
                         resizeBrowserView();
                     }
-                    tab.view.webContents.loadURL(payload.url);
+                    if (tab.url !== payload.url) {
+                        tab.ignoreNextNavigations = true;
+                        tab.view.webContents.loadURL(payload.url);
+                        if (tab.syncTimeout) clearTimeout(tab.syncTimeout);
+                        tab.syncTimeout = setTimeout(() => { tab.ignoreNextNavigations = false; }, 3000);
+                    }
                 }
             }
             break;
@@ -509,6 +519,12 @@ function handleRemoteState(msg) {
         case 'control': {
             const tab = tabs.find((t) => t.id === activeTabId);
             if (tab) {
+                if (payload.action === 'playingOn-mobile') {
+                    // Mobile took over media playback, load remote control UI
+                    tab.view.webContents.loadFile(path.join(__dirname, 'renderer', 'remote.html'), { query: { url: tab.url } });
+                    return;
+                }
+
                 if (payload.action === 'back' && tab.view.webContents.navigationHistory.canGoBack()) tab.view.webContents.navigationHistory.goBack();
                 if (payload.action === 'forward' && tab.view.webContents.navigationHistory.canGoForward()) tab.view.webContents.navigationHistory.goForward();
                 if (payload.action === 'reload') tab.view.webContents.reload();
@@ -607,6 +623,8 @@ ipcMain.on('navigate', (_e, url) => {
                 mainWindow.addBrowserView(tab.view);
                 resizeBrowserView();
             }
+            tab.ignoreNextNavigations = false;
+            if (tab.syncTimeout) clearTimeout(tab.syncTimeout);
             tab.view.webContents.loadURL(url);
         }
     }
@@ -805,4 +823,17 @@ ipcMain.on('open-pdf', async () => {
 
 ipcMain.on('open-pdf-path', async (_e, filePath) => {
     await handleOpenPdf(filePath);
+});
+
+// ── Remote Control IPC ───────────────────────────────
+
+ipcMain.on('bv-remote-control', (e, action) => {
+    if (syncEngine) syncEngine.sendState('control', { action });
+});
+
+ipcMain.on('bv-load-url', (e, url) => {
+    const tab = tabs.find(t => t.view.webContents === e.sender);
+    if (tab && url) {
+        tab.view.webContents.loadURL(url);
+    }
 });
